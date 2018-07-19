@@ -6,12 +6,12 @@ import urllib
 from appJar import gui
 from netaddr import *
 
-# globals
-Raw_JSON = str()
-IPv4_Addresses = []
-IPv6_Addresses = []
+# --- globals ---
+_raw_json = str()
+_ipv4_addresses = []
+_ipv6_addresses = []
 
-# constants
+# --- constants ---
 # Data
 IP_DATA_URL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
 
@@ -47,58 +47,62 @@ P_LEFT = "Left"
 P_RIGHT = "Right"
 
 
-# functions
-def ProcessData():
-    global Raw_JSON, IPv4_Addresses, IPv6_Addresses
+# --- functions ---
+# Function processes raw JSON data and places it in the appropriate data variable
+def process_data():
+    global _raw_json, _ipv4_addresses, _ipv6_addresses
 
-    Processed_JSON = json.loads(Raw_JSON)
-    IPv4_Addresses = Processed_JSON['prefixes']
-    IPv6_Addresses = Processed_JSON['ipv6_prefixes']
+    Processed_JSON = json.loads(_raw_json)
+    _ipv4_addresses = Processed_JSON['prefixes']
+    _ipv6_addresses = Processed_JSON['ipv6_prefixes']
 
-    for ndx, _ in enumerate(IPv4_Addresses):
-        IPv4_Addresses[ndx]['ip_prefix'] = IPNetwork(IPv4_Addresses[ndx]['ip_prefix'])
+    for ndx, _ in enumerate(_ipv4_addresses):
+        _ipv4_addresses[ndx]['ip_prefix'] = IPNetwork(_ipv4_addresses[ndx]['ip_prefix'])
 
-    for ndx, _ in enumerate(IPv6_Addresses):
-        IPv6_Addresses[ndx]['ipv6_prefix'] = IPNetwork(IPv6_Addresses[ndx]['ipv6_prefix'])
+    for ndx, _ in enumerate(_ipv6_addresses):
+        _ipv6_addresses[ndx]['ipv6_prefix'] = IPNetwork(_ipv6_addresses[ndx]['ipv6_prefix'])
 
 
-def UpdateServiceList():
-    global IPv4_Addresses, IPv6_Addresses
+# Function updates the service list from data stored
+def update_service_list():
+    global _ipv4_addresses, _ipv6_addresses
     EnvironmentList = {}
     IPVersion = app.getRadioButton(RB_IPVERSION)
 
     if IPVersion == RB_IPV_IPV4:
-        for Address in IPv4_Addresses:
+        for Address in _ipv4_addresses:
             EnvironmentList[Address['service']] = Address['service']
 
     if IPVersion == RB_IPV_IPV6:
-        for Address in IPv6_Addresses:
+        for Address in _ipv6_addresses:
             EnvironmentList[Address['service']] = Address['service']
 
     app.changeOptionBox(OB_SERVICE, EnvironmentList, callFunction=False)
 
 
-def UpdateRegionList():
-    global IPv4_Addresses, IPv6_Addresses
+# Function updates region list from data stored
+def update_region_list():
+    global _ipv4_addresses, _ipv6_addresses
     RegionList = {}
     IPVersion = app.getRadioButton(RB_IPVERSION)
     Service = app.getOptionBox(OB_SERVICE)
 
     if IPVersion == RB_IPV_IPV4:
-        for Address in IPv4_Addresses:
+        for Address in _ipv4_addresses:
             if Address['service'] == Service:
                 RegionList[Address['region']] = Address['region']
 
     if IPVersion == RB_IPV_IPV6:
-        for Address in IPv6_Addresses:
+        for Address in _ipv6_addresses:
             if Address['service'] == Service:
                 RegionList[Address['region']] = Address['region']
 
     app.changeOptionBox(OB_REGION, RegionList, callFunction=False)
 
 
-def UpdateIPList():
-    global IPv4_Addresses, IPv6_Addresses, Raw_JSON
+# Function updates IP list from data stored
+def update_ip_list():
+    global _ipv4_addresses, _ipv6_addresses
     IPList = IPSet()
 
     app.clearTextArea(TA_IPLIST, callFunction=False)
@@ -108,18 +112,19 @@ def UpdateIPList():
     Region = app.getOptionBox(OB_REGION)
 
     if IPVersion == RB_IPV_IPV4:
-        for Address in IPv4_Addresses:
+        for Address in _ipv4_addresses:
             if Address['service'] == Service and Address['region'] == Region:
                 IPList.add(Address['ip_prefix'])
 
     if IPVersion == RB_IPV_IPV6:
-        for Address in IPv6_Addresses:
+        for Address in _ipv6_addresses:
             if Address['service'] == Service and Address['region'] == Region:
                 IPList.add(Address['ipv6_prefix'])
 
     app.setTextArea(TA_IPLIST, format_cidr_list(IPList.iter_cidrs()), callFunction=False)
 
 
+# Function used to format a list of networks from an iterated list of CIDRS
 def format_cidr_list(list):
     formattedList = []
     for item in list:
@@ -128,41 +133,45 @@ def format_cidr_list(list):
     return os.linesep.join(formattedList)
 
 
-def RefreshData():
-    global Raw_JSON
+# Downloads and stores data from AWS
+def refresh_data():
+    global _raw_json
     try:
         response = urllib.urlopen(IP_DATA_URL)
-        Raw_JSON = response.read()
+        _raw_json = response.read()
     except:
         return
 
-    ProcessData()
-    UpdateServiceList()
-    UpdateRegionList()
-    UpdateIPList()
+    process_data()
+    update_service_list()
+    update_region_list()
+    update_ip_list()
 
 
-# Event Handlers
-def Button_Click(name):
+# --- event handlers ---
+# Process button clicks
+def button__click(name):
     if name == BT_REFRESH:
-        RefreshData()
+        refresh_data()
 
 
-def RadioButton_Change(name):
+# Process radio button changes
+def radio_button__change(name):
     if name == RB_IPVERSION:
-        UpdateServiceList()
-        UpdateRegionList()
-        UpdateIPList()
+        update_service_list()
+        update_region_list()
+        update_ip_list()
 
 
-def OptionBox_Change(name):
+# Process option box changes
+def option_box__change(name):
     if name == OB_SERVICE:
-        UpdateRegionList()
+        update_region_list()
 
-    UpdateIPList()
+    update_ip_list()
 
 
-# gui Builder
+# --- gui builder ---
 # - Main GUI
 with gui(GUI_MAIN) as app:
     app.setResizable(False)
@@ -172,18 +181,18 @@ with gui(GUI_MAIN) as app:
 
     with app.frame(P_LEFT):
         app.setStretch("column")
-        app.addButton(BT_REFRESH, RefreshData)
+        app.addButton(BT_REFRESH, refresh_data)
 
         app.addLabel(L_SERVICE, L_SERVICE)
         app.setLabelAlign(L_SERVICE, "left")
         app.addOptionBox(OB_SERVICE, ["AMAZON"])
-        app.setOptionBoxChangeFunction(OB_SERVICE, OptionBox_Change)
+        app.setOptionBoxChangeFunction(OB_SERVICE, option_box__change)
         app.setOptionBoxWidth(OB_SERVICE, 25)
 
         app.addLabel(L_REGION, L_REGION)
         app.setLabelAlign(L_REGION, "left")
         app.addOptionBox(OB_REGION, ["GLOBAL"])
-        app.setOptionBoxChangeFunction(OB_REGION, OptionBox_Change)
+        app.setOptionBoxChangeFunction(OB_REGION, option_box__change)
         app.setOptionBoxWidth(OB_REGION, 25)
 
     with app.frame(P_RIGHT, row=0, column=1):
@@ -192,6 +201,6 @@ with gui(GUI_MAIN) as app:
         with app.toggleFrame(TF_IPVERSION):
             app.addRadioButton(RB_IPVERSION, RB_IPV_IPV4)
             app.addRadioButton(RB_IPVERSION, RB_IPV_IPV6, row=0, column=1)
-            app.setRadioButtonChangeFunction(RB_IPVERSION, RadioButton_Change)
+            app.setRadioButtonChangeFunction(RB_IPVERSION, radio_button__change)
 
-    RefreshData()
+    refresh_data()
