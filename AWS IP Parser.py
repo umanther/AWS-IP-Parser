@@ -1,7 +1,14 @@
 # coding=UTF-8
 import json
+import logging
 import os
-import urllib
+# Needed for Python 2/3 compatibility
+from sys import version_info as python_version
+
+try:
+    import urllib.request as urllib_combined  # Python 3
+except ImportError:
+    import urllib2 as urllib_combined  # Python 2
 
 from appJar import gui
 from netaddr import *
@@ -26,21 +33,21 @@ L_REGION = "Region:"
 BT_REFRESH = "Refresh IP List"
 
 #  Radio Buttons
-RB_IPVERSION = "IPVersion"
+RB_IP_VERSION = "IPVersion"
 RB_IPV_IPV4 = "IPv4"
 RB_IPV_IPV6 = "IPv6"
 
 # Text Area
-TA_SYNCTOKEN = "Sync Token"
-TA_CREATEDATE = "Creation Date"
-TA_IPLIST = "IP List"
+TA_SYNC_TOKEN = "Sync Token"
+TA_CREATE_DATE = "Creation Date"
+TA_IP_LIST = "IP List"
 
 # Option Box
 OB_SERVICE = "Service"
 OB_REGION = "Region"
 
 # Toggle Frame
-TF_IPVERSION = "IP Version"
+TF_IP_VERSION = "IP Version"
 
 # Panes
 P_LEFT = "Left"
@@ -52,9 +59,9 @@ P_RIGHT = "Right"
 def process_data():
     global _raw_json, _ipv4_addresses, _ipv6_addresses
 
-    Processed_JSON = json.loads(_raw_json)
-    _ipv4_addresses = Processed_JSON['prefixes']
-    _ipv6_addresses = Processed_JSON['ipv6_prefixes']
+    processed_json = json.loads(_raw_json)
+    _ipv4_addresses = processed_json['prefixes']
+    _ipv6_addresses = processed_json['ipv6_prefixes']
 
     for ndx, _ in enumerate(_ipv4_addresses):
         _ipv4_addresses[ndx]['ip_prefix'] = IPNetwork(_ipv4_addresses[ndx]['ip_prefix'])
@@ -66,81 +73,87 @@ def process_data():
 # Function updates the service list from data stored
 def update_service_list():
     global _ipv4_addresses, _ipv6_addresses
-    EnvironmentList = {}
-    IPVersion = app.getRadioButton(RB_IPVERSION)
+    environment_list = {}
+    ip_version = app.getRadioButton(RB_IP_VERSION)
 
-    if IPVersion == RB_IPV_IPV4:
+    if ip_version == RB_IPV_IPV4:
         for Address in _ipv4_addresses:
-            EnvironmentList[Address['service']] = Address['service']
+            environment_list[Address['service']] = str(Address['service'])
 
-    if IPVersion == RB_IPV_IPV6:
+    if ip_version == RB_IPV_IPV6:
         for Address in _ipv6_addresses:
-            EnvironmentList[Address['service']] = Address['service']
+            environment_list[Address['service']] = Address['service']
 
-    app.changeOptionBox(OB_SERVICE, EnvironmentList, callFunction=False)
+    app.changeOptionBox(OB_SERVICE, sorted(environment_list, key=environment_list.__getitem__), callFunction=False)
 
 
 # Function updates region list from data stored
 def update_region_list():
     global _ipv4_addresses, _ipv6_addresses
-    RegionList = {}
-    IPVersion = app.getRadioButton(RB_IPVERSION)
-    Service = app.getOptionBox(OB_SERVICE)
+    region_list = {}
+    ip_version = app.getRadioButton(RB_IP_VERSION)
+    service = app.getOptionBox(OB_SERVICE)
 
-    if IPVersion == RB_IPV_IPV4:
+    if ip_version == RB_IPV_IPV4:
         for Address in _ipv4_addresses:
-            if Address['service'] == Service:
-                RegionList[Address['region']] = Address['region']
+            if Address['service'] == service:
+                region_list[Address['region']] = Address['region']
 
-    if IPVersion == RB_IPV_IPV6:
+    if ip_version == RB_IPV_IPV6:
         for Address in _ipv6_addresses:
-            if Address['service'] == Service:
-                RegionList[Address['region']] = Address['region']
+            if Address['service'] == service:
+                region_list[Address['region']] = Address['region']
 
-    app.changeOptionBox(OB_REGION, RegionList, callFunction=False)
+    app.changeOptionBox(OB_REGION, sorted(region_list, key=region_list.__getitem__), callFunction=False)
 
 
 # Function updates IP list from data stored
 def update_ip_list():
     global _ipv4_addresses, _ipv6_addresses
-    IPList = IPSet()
+    ip_list = IPSet()
 
-    app.clearTextArea(TA_IPLIST, callFunction=False)
+    app.clearTextArea(TA_IP_LIST, callFunction=False)
 
-    IPVersion = app.getRadioButton(RB_IPVERSION)
-    Service = app.getOptionBox(OB_SERVICE)
-    Region = app.getOptionBox(OB_REGION)
+    ip_version = app.getRadioButton(RB_IP_VERSION)
+    service = app.getOptionBox(OB_SERVICE)
+    region = app.getOptionBox(OB_REGION)
 
-    if IPVersion == RB_IPV_IPV4:
+    if ip_version == RB_IPV_IPV4:
         for Address in _ipv4_addresses:
-            if Address['service'] == Service and Address['region'] == Region:
-                IPList.add(Address['ip_prefix'])
+            if Address['service'] == service and Address['region'] == region:
+                ip_list.add(Address['ip_prefix'])
 
-    if IPVersion == RB_IPV_IPV6:
+    if ip_version == RB_IPV_IPV6:
         for Address in _ipv6_addresses:
-            if Address['service'] == Service and Address['region'] == Region:
-                IPList.add(Address['ipv6_prefix'])
+            if Address['service'] == service and Address['region'] == region:
+                ip_list.add(Address['ipv6_prefix'])
 
-    app.setTextArea(TA_IPLIST, format_cidr_list(IPList.iter_cidrs()), callFunction=False)
+    app.setTextArea(TA_IP_LIST, format_cidr_list(ip_list.iter_cidrs()), callFunction=False)
 
 
 # Function used to format a list of networks from an iterated list of CIDRS
-def format_cidr_list(list):
-    formattedList = []
-    for item in list:
-        formattedList.append(str(item).split("/32")[0])
+def format_cidr_list(cidr_list):
+    formatted_list = []
+    for item in cidr_list:
+        formatted_list.append(str(item).split("/32")[0])
 
-    return os.linesep.join(formattedList)
+    return os.linesep.join(formatted_list)
 
 
 # Downloads and stores data from AWS
 def refresh_data():
     global _raw_json
+
     try:
-        response = urllib.urlopen(IP_DATA_URL)
-        _raw_json = response.read()
-    except:
+        response = urllib_combined.urlopen(IP_DATA_URL)
+    except BaseException as err:
+        logging.warning("Unable to load URL: " + str(err))
         return
+
+    if python_version.major == 2:
+        _raw_json = response.read()
+    elif python_version.major == 3:
+        _raw_json = response.read().decode('utf-8')
 
     process_data()
     update_service_list()
@@ -157,7 +170,7 @@ def button__click(name):
 
 # Process radio button changes
 def radio_button__change(name):
-    if name == RB_IPVERSION:
+    if name == RB_IP_VERSION:
         update_service_list()
         update_region_list()
         update_ip_list()
@@ -196,11 +209,11 @@ with gui(GUI_MAIN) as app:
         app.setOptionBoxWidth(OB_REGION, 25)
 
     with app.frame(P_RIGHT, row=0, column=1):
-        app.addScrolledTextArea(TA_IPLIST)
+        app.addScrolledTextArea(TA_IP_LIST)
 
-        with app.toggleFrame(TF_IPVERSION):
-            app.addRadioButton(RB_IPVERSION, RB_IPV_IPV4)
-            app.addRadioButton(RB_IPVERSION, RB_IPV_IPV6, row=0, column=1)
-            app.setRadioButtonChangeFunction(RB_IPVERSION, radio_button__change)
+        with app.toggleFrame(TF_IP_VERSION):
+            app.addRadioButton(RB_IP_VERSION, RB_IPV_IPV4)
+            app.addRadioButton(RB_IP_VERSION, RB_IPV_IPV6, row=0, column=1)
+            app.setRadioButtonChangeFunction(RB_IP_VERSION, radio_button__change)
 
     refresh_data()
