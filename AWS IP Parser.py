@@ -2,13 +2,8 @@
 import json
 import logging
 import os
-# Needed for Python 2/3 compatibility
-from sys import version_info as python_version
 
-try:
-    import urllib.request as urllib_combined  # Python 3
-except ImportError:
-    import urllib2 as urllib_combined  # Python 2
+import urllib.request as urllib_combined
 
 from appJar import gui
 from netaddr import *
@@ -150,10 +145,7 @@ def refresh_data():
         logging.warning("Unable to load URL: " + str(err))
         return
 
-    if python_version.major == 2:
-        _raw_json = response.read()
-    elif python_version.major == 3:
-        _raw_json = response.read().decode('utf-8')
+    _raw_json = response.read().decode('utf-8')
 
     process_data()
     update_service_list()
