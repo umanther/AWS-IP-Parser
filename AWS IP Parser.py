@@ -128,10 +128,7 @@ def update_ip_list():
 
 # Function used to format a list of networks from an iterated list of CIDRS
 def format_cidr_list(cidr_list):
-    formatted_list = []
-    for item in cidr_list:
-        formatted_list.append(str(item).split("/32")[0])
-
+    formatted_list = [str(item).split("/32")[0] for item in cidr_list]
     return os.linesep.join(formatted_list)
 
 
@@ -142,7 +139,7 @@ def refresh_data():
     try:
         response = urllib_combined.urlopen(IP_DATA_URL)
     except BaseException as err:
-        logging.warning("Unable to load URL: " + str(err))
+        logging.warning(f"Unable to load URL: {str(err)}")
         return
 
     _raw_json = response.read().decode('utf-8')
